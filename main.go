@@ -50,10 +50,10 @@ func init() {
 	flag.BoolVar(&argv.drop, `drop`, false, `drop clickhouse_stress and clickhouse_stress_buffer tables`)
 
 	flag.StringVar(&argv.srv, `srv`, "127.0.0.1:8123", "Clickhouse host:part")
-	flag.IntVar(&argv.maxConn, `max-conn`, 20, `Max number of connections to clickhouse (more than 100 is not recommended)`)
+	flag.IntVar(&argv.maxConn, `max-conn`, 50, `Max number of connections to clickhouse (more than 100 is not recommended)`)
 	flag.IntVar(&argv.maxConcurrency, `max-concurrency`, 0, `Number of parallel goroutines to use, 0 is use 2x max-conn)`)
-	//flag.StringVar(&argv.tableColumns, `table`, "clickhouse_stress_buffer(time,key0,key1,key2,key3)", "Table name with columns to insert")
-	flag.IntVar(&argv.dataSize, `data-size`, 20000, "Random bytes count to insert (must be multiple of row binary size, 20 for default table)")
+	flag.StringVar(&argv.tableColumns, `table`, clickHouseStressTableColumns, "Table name with columns to insert into. You must create tables manually if this is non-default.")
+	flag.IntVar(&argv.dataSize, `data-size`, 200000, "Random bytes count to insert (must be multiple of row binary size, 20 for default table)")
 
 	flag.Parse()
 
@@ -129,7 +129,7 @@ func OverLoadClickHouse(client *http.Client) {
 	go GoPrintStats(&wg)
 	for i := 0; i < argv.maxConcurrency; i += 1 {
 		wg.Add(1)
-		go GoOverLoadClickHouse(client, clickHouseStressTableColumns, argv.dataSize, &wg)
+		go GoOverLoadClickHouse(client, argv.tableColumns, argv.dataSize, &wg)
 	}
 	chSignal := make(chan os.Signal, 1)
 	signal.Notify(chSignal, syscall.SIGINT)
@@ -170,17 +170,19 @@ func main() {
 		log.Printf("Dropped tables for testing")
 		return;
 	}
-	err := Flush(client, createClickHouseStress, nil)
-	if err != nil {
-		log.Printf("%v", err)
-	}
-	err = Flush(client, createClickHouseStressBuffer, nil)
-	if err != nil {
-		log.Printf("%v", err)
-	}
-	err = Flush(client, optimizeClickHouseStressBuffer, nil)
-	if err != nil {
-		log.Printf("%v", err)
+	if argv.tableColumns == clickHouseStressTableColumns {
+		err := Flush(client, createClickHouseStress, nil)
+		if err != nil {
+			log.Printf("%v", err)
+		}
+		err = Flush(client, createClickHouseStressBuffer, nil)
+		if err != nil {
+			log.Printf("%v", err)
+		}
+		err = Flush(client, optimizeClickHouseStressBuffer, nil)
+		if err != nil {
+			log.Printf("%v", err)
+		}
 	}
 	OverLoadClickHouse(client)
 }
