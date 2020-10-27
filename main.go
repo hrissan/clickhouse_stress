@@ -21,7 +21,6 @@ import (
 var (
 	argv struct {
 		help bool
-		create bool
 		drop bool
 
 		srv string
@@ -40,7 +39,7 @@ var (
 const createClickHouseStress = "CREATE TABLE IF NOT EXISTS clickhouse_stress (`date` Date DEFAULT toDate(time), `time` DateTime, `key0` Int32, `key1` Int32, `key2` Int32, `key3` Int32) ENGINE = MergeTree() ORDER BY (date, time, key0)"
 const createClickHouseStressBuffer = "CREATE TABLE IF NOT EXISTS clickhouse_stress_buffer AS clickhouse_stress ENGINE = Buffer('default', 'clickhouse_stress', 16, 10, 100, 10000, 1000000, 10000000, 100000000)"
 const optimizeClickHouseStressBuffer = "OPTIMIZE TABLE clickhouse_stress_buffer"
-const clearClickHouseStress = "ALTER TABLE clickhouse_stress DELETE WHERE key0 < 1000000000000"
+const clickHouseStressTableColumns = "clickhouse_stress_buffer(time,key0,key1,key2,key3)"
 const dropClickHouseStressBuffer = "DROP TABLE clickhouse_stress_buffer"
 const dropClickHouseStress = "DROP TABLE clickhouse_stress"
 
@@ -48,13 +47,12 @@ func init() {
 
 	// actions
 	flag.BoolVar(&argv.help, `h`, false, `show this help`)
-	flag.BoolVar(&argv.create, `create`, false, `create clickhouse_stress and clickhouse_stress_buffer tables, flush clickhouse_stress_buffer`)
 	flag.BoolVar(&argv.drop, `drop`, false, `drop clickhouse_stress and clickhouse_stress_buffer tables`)
 
 	flag.StringVar(&argv.srv, `srv`, "127.0.0.1:8123", "Clickhouse host:part")
 	flag.IntVar(&argv.maxConn, `max-conn`, 20, `Max number of connections to clickhouse (more than 100 is not recommended)`)
 	flag.IntVar(&argv.maxConcurrency, `max-concurrency`, 0, `Number of parallel goroutines to use, 0 is use 2x max-conn)`)
-	flag.StringVar(&argv.tableColumns, `table`, "clickhouse_stress_buffer(time,key0,key1,key2,key3)", "Table name with columns to insert")
+	//flag.StringVar(&argv.tableColumns, `table`, "clickhouse_stress_buffer(time,key0,key1,key2,key3)", "Table name with columns to insert")
 	flag.IntVar(&argv.dataSize, `data-size`, 20000, "Random bytes count to insert (must be multiple of row binary size, 20 for default table)")
 
 	flag.Parse()
@@ -131,7 +129,7 @@ func OverLoadClickHouse(client *http.Client) {
 	go GoPrintStats(&wg)
 	for i := 0; i < argv.maxConcurrency; i += 1 {
 		wg.Add(1)
-		go GoOverLoadClickHouse(client, argv.tableColumns, argv.dataSize, &wg)
+		go GoOverLoadClickHouse(client, clickHouseStressTableColumns, argv.dataSize, &wg)
 	}
 	chSignal := make(chan os.Signal, 1)
 	signal.Notify(chSignal, syscall.SIGINT)
@@ -160,18 +158,6 @@ func main() {
 			MaxConnsPerHost:     argv.maxConn,
 		},
 	}
-	if argv.create {
-		err := Flush(client, createClickHouseStress, nil)
-		if err != nil {
-			log.Printf("%v", err)
-		}
-		err = Flush(client, createClickHouseStressBuffer, nil)
-		if err != nil {
-			log.Printf("%v", err)
-		}
-		log.Printf("Created tables for testing")
-		return;
-	}
 	if argv.drop {
 		err := Flush(client, dropClickHouseStressBuffer, nil)
 		if err != nil {
@@ -184,7 +170,15 @@ func main() {
 		log.Printf("Dropped tables for testing")
 		return;
 	}
-	err := Flush(client, optimizeClickHouseStressBuffer, nil)
+	err := Flush(client, createClickHouseStress, nil)
+	if err != nil {
+		log.Printf("%v", err)
+	}
+	err = Flush(client, createClickHouseStressBuffer, nil)
+	if err != nil {
+		log.Printf("%v", err)
+	}
+	err = Flush(client, optimizeClickHouseStressBuffer, nil)
 	if err != nil {
 		log.Printf("%v", err)
 	}
