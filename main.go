@@ -91,7 +91,6 @@ func Flush(client *http.Client, query string, body []byte) error {
 
 	if resp.StatusCode != http.StatusOK {
 		clickhouseExceptionText := resp.Header.Get("X-ClickHouse-Exception-Code")
-		log.Printf("Could not post query %s to clickhouse (HTTP code %d, X-ClickHouse-Exception-Code: %s): %s", query, resp.StatusCode, clickhouseExceptionText, partialMessage[0:partialMessageLen])
 		return fmt.Errorf("Could not post query %s to clickhouse (HTTP code %d, X-ClickHouse-Exception-Code: %s): %s", query, resp.StatusCode, clickhouseExceptionText, partialMessage[0:partialMessageLen])
 	}
 	return nil
