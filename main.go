@@ -43,7 +43,7 @@ const clickHouseStressTableColumns = "clickhouse_stress_buffer(time,key0,key1,ke
 const dropClickHouseStressBuffer = "DROP TABLE clickhouse_stress_buffer"
 const dropClickHouseStress = "DROP TABLE clickhouse_stress"
 
-func init() {
+func parseArgv() {
 
 	// actions
 	flag.BoolVar(&argv.help, `h`, false, `show this help`)
@@ -147,6 +147,7 @@ loop:
 }
 
 func main() {
+	parseArgv()
 	if argv.help {
 		flag.Usage()
 		return
