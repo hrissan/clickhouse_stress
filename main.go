@@ -111,57 +111,6 @@ func GoPrintStats(wg *sync.WaitGroup) {
  	}
 }
 
-/*
-func GoOverLoadClickHouseWS(client *http.Client, tableColumns string, dataSize int, wg *sync.WaitGroup) {
-	defer wg.Done()
-	counter := 0
-	queryPrefix := url.PathEscape(fmt.Sprintf("INSERT INTO %s FORMAT RowBinary", tableColumns))
-	reqUrl := fmt.Sprintf("/?input_format_values_interpret_expressions=0&query=%s", argv.srv, queryPrefix)
-	var (
-		ws *websocket.Conn
-		err error
-	)
-	if argv.webSocket {
-		ws, _, err = websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/meow", argv.srv), nil)
-		if err != nil {
-			log.Fatal("dial:", err)
-		}
-		defer ws.Close()
-		go func(){
-			for {
-				_, _, err = ws.ReadMessage()
-				if err != nil {
-					break
-				}
-			}
-		}()
-	}
-
-	for ;atomic.LoadInt32(&shouldQuit) == 0; counter += 1 {
-		body := make([]byte, dataSize)
-		_, _ = rand.Read(body[:])
-		if ws != nil {
-			err = ws.WriteMessage(websocket.BinaryMessage, body)
-		}else{
-			err = Flush(client, fmt.Sprintf("INSERT INTO %s FORMAT RowBinary", tableColumns), body[:])
-		}
-		if err != nil {
-			log.Printf("Error inserting counter=%d, %v", counter, err)
-			time.Sleep(1 * time.Second)
-			counter = 0
-			continue
-		}
-		atomic.AddInt64(&statInserts,1)
-		atomic.AddInt64(&statBytesInserted,int64(dataSize))
-	}
-	if ws != nil {
-		err = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-	}
-	if err != nil {
-		log.Printf("Could not write close message, %v", err)
-	}
-}
-*/
 func GoOverLoadClickHouse(client *http.Client, tableColumns string, dataSize int, randomDataSize bool, wg *sync.WaitGroup) {
 	defer wg.Done()
 	counter := 0
