@@ -39,8 +39,8 @@ var (
 	shouldQuit int32
 )
 
-const createClickHouseStress = "CREATE TABLE IF NOT EXISTS clickhouse_stress2 (`date` Date DEFAULT toDate(time), `time` DateTime, `key0` Int32, `key1` Int32, `key2` Int32, `key3` Int32) ENGINE = MergeTree() ORDER BY (date, time, key0, key1)"
-const createClickHouseStressBuffer = "CREATE TABLE IF NOT EXISTS clickhouse_stress2_buffer AS clickhouse_stress ENGINE = Buffer('default', 'clickhouse_stress2', 16, 10, 100, 10000, 1000000, 10000000, 100000000)"
+const createClickHouseStress = "CREATE TABLE IF NOT EXISTS clickhouse_stress (`date` Date DEFAULT toDate(time), `time` DateTime, `key0` Int32, `key1` Int32, `key2` Int32, `key3` Int32) ENGINE = MergeTree() ORDER BY (date, time, key0, key1)"
+const createClickHouseStressBuffer = "CREATE TABLE IF NOT EXISTS clickhouse_stress_buffer AS clickhouse_stress ENGINE = Buffer('default', 'clickhouse_stress', 16, 10, 100, 10000, 1000000, 10000000, 100000000)"
 const optimizeClickHouseStressBuffer = "OPTIMIZE TABLE clickhouse_stress_buffer"
 const clickHouseStressTableColumns = "clickhouse_stress_buffer(time,key0,key1,key2,key3)"
 const dropClickHouseStressBuffer = "DROP TABLE clickhouse_stress_buffer"
