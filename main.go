@@ -30,6 +30,7 @@ var (
 
 		tableColumns string
 		dataSize int
+		randomDataSize bool
 		webSocket bool
 	}
 
@@ -56,6 +57,7 @@ func parseArgv() {
 	flag.IntVar(&argv.maxConcurrency, `max-concurrency`, 0, `Number of parallel goroutines to use, 0 is use 2x max-conn)`)
 	flag.StringVar(&argv.tableColumns, `table`, clickHouseStressTableColumns, "Table name with columns to insert into. You must create tables manually if this is non-default.")
 	flag.IntVar(&argv.dataSize, `data-size`, 200000, "Random bytes count to insert (must be multiple of row binary size, 20 for default table)")
+	flag.BoolVar(&argv.randomDataSize, `random-data-size`, false, "Randomly select bytes count to insert, from 0 to -data-size bytes")
 	flag.BoolVar(&argv.webSocket, `ws`, false, "Use /meow web socket extension")
 
 	flag.Parse()
@@ -70,8 +72,8 @@ func parseArgv() {
 		log.Panicf("max-concurrency must be at least 1")
 	}
 
-	if argv.dataSize < 1 {
-		log.Panicf("data-size must be at least 1")
+	if argv.dataSize < 0 {
+		log.Panicf("data-size must be at least 0")
 	}
 }
 
@@ -79,6 +81,8 @@ func Flush(client *http.Client, query string, body []byte) error {
 	queryPrefix := url.PathEscape(query)
 
 	reqUrl := fmt.Sprintf("http://%s/?input_format_values_interpret_expressions=0&query=%s", argv.srv, queryPrefix)
+
+	log.Printf("Sending %d bytes to clickhouse", len(body))
 
 	// TODO - why application/x-www-form-urlencoded, this is wrong data format for a form, will break pedantic proxies
 	resp, err := client.Post(reqUrl, "application/x-www-form-urlencoded", bytes.NewReader(body))
@@ -158,7 +162,7 @@ func GoOverLoadClickHouseWS(client *http.Client, tableColumns string, dataSize i
 	}
 }
 */
-func GoOverLoadClickHouse(client *http.Client, tableColumns string, dataSize int, wg *sync.WaitGroup) {
+func GoOverLoadClickHouse(client *http.Client, tableColumns string, dataSize int, randomDataSize bool, wg *sync.WaitGroup) {
 	defer wg.Done()
 	counter := 0
 	query := fmt.Sprintf("INSERT INTO %s FORMAT RowBinary", tableColumns)
@@ -185,8 +189,15 @@ func GoOverLoadClickHouse(client *http.Client, tableColumns string, dataSize int
 	}
 
 	for ;atomic.LoadInt32(&shouldQuit) == 0; counter += 1 {
-		body := make([]byte, dataSize)
-		_, _ = rand.Read(body[:])
+		var body []byte
+		if dataSize > 0 {
+			ds := dataSize
+			if randomDataSize {
+				ds = 20 + 20*rand.Intn(dataSize/20)
+			}
+			body = make([]byte, ds)
+			_, _ = rand.Read(body[:])
+		}
 		if ws != nil {
 			err = ws.WriteMessage(websocket.BinaryMessage, wsURL)
 			if err != nil {
@@ -224,7 +235,7 @@ func OverLoadClickHouse(client *http.Client) {
 	go GoPrintStats(&wg)
 	for i := 0; i < argv.maxConcurrency; i += 1 {
 		wg.Add(1)
-		go GoOverLoadClickHouse(client, argv.tableColumns, argv.dataSize, &wg)
+		go GoOverLoadClickHouse(client, argv.tableColumns, argv.dataSize, argv.randomDataSize, &wg)
 	}
 	chSignal := make(chan os.Signal, 1)
 	signal.Notify(chSignal, syscall.SIGINT)
